@@ -12,11 +12,11 @@ class FeatureNet(nn.Module):
         self.conv0 = ConvBnReLU(3, 8, 3, 1, 1)
         self.conv1 = ConvBnReLU(8, 8, 3, 1, 1)
 
-        self.conv2 = ConvBnReLU(8, 16, 5, 2, 2)
+        self.conv2 = ConvBnReLU(8, 16, 5, 2, 2)     # 图片尺寸缩小一半
         self.conv3 = ConvBnReLU(16, 16, 3, 1, 1)
         self.conv4 = ConvBnReLU(16, 16, 3, 1, 1)
 
-        self.conv5 = ConvBnReLU(16, 32, 5, 2, 2)
+        self.conv5 = ConvBnReLU(16, 32, 5, 2, 2)    # 图片尺寸缩小一半
         self.conv6 = ConvBnReLU(32, 32, 3, 1, 1)
         self.feature = nn.Conv2d(32, 32, 3, 1, 1)
 
@@ -96,7 +96,7 @@ class MVSNet(nn.Module):
             self.refine_network = RefineNet()
 
     def forward(self, imgs, proj_matrices, depth_values):
-        imgs = torch.unbind(imgs, 1)
+        imgs = torch.unbind(imgs, 1)    # unbind表示从这一维拆开，把里面包的东西拿出来 -> (N,C,H,W)
         proj_matrices = torch.unbind(proj_matrices, 1)
         assert len(imgs) == len(proj_matrices), "Different number of images and projection matrices"
         img_height, img_width = imgs[0].shape[2], imgs[0].shape[3]
@@ -105,12 +105,12 @@ class MVSNet(nn.Module):
 
         # step 1. feature extraction
         # in: images; out: 32-channel feature maps
-        features = [self.feature(img) for img in imgs]
+        features = [self.feature(img) for img in imgs]  # [batchsize,32 ,w/4,h/4]
         ref_feature, src_features = features[0], features[1:]
         ref_proj, src_projs = proj_matrices[0], proj_matrices[1:]
 
         # step 2. differentiable homograph, build cost volume
-        ref_volume = ref_feature.unsqueeze(2).repeat(1, 1, num_depth, 1, 1)
+        ref_volume = ref_feature.unsqueeze(2).repeat(1, 1, num_depth, 1, 1)     # unsqueeze 是解压缩，在第二个维度增加一维 -> (w/4,h/4 ,1,32), repeat -> （w/4 , h/4, num_depth, 32）
         volume_sum = ref_volume
         volume_sq_sum = ref_volume ** 2
         del ref_volume

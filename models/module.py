@@ -99,12 +99,14 @@ def homo_warping(src_fea, src_proj, ref_proj, depth_values):
     # ref_proj: [B, 4, 4]
     # depth_values: [B, Ndepth]
     # out: [B, C, Ndepth, H, W]
+    # projection metrics 投影矩阵，在读取相机文件时就构建好了，是通过内参和外参得来的.实际是 [[KR KT][0 1]]
+    # 应用公式为 pi = src_proj * inverse(ref_proj) * p_ref ,表示参考图像p_ref处的像素应该从src图像pi处得到
     batch, channels = src_fea.shape[0], src_fea.shape[1]
     num_depth = depth_values.shape[1]
     height, width = src_fea.shape[2], src_fea.shape[3]
 
     with torch.no_grad():
-        proj = torch.matmul(src_proj, torch.inverse(ref_proj))
+        proj = torch.matmul(src_proj, torch.inverse(ref_proj))  # torch.inverse 计算矩阵的逆
         rot = proj[:, :3, :3]  # [B,3,3]
         trans = proj[:, :3, 3:4]  # [B,3,1]
 
