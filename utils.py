@@ -59,7 +59,7 @@ def tensor2numpy(vars):
 
 @make_recursive_func
 def tocuda(vars):
-    if isinstance(vars, torch.Tensor):
+    if isinstance(vars, torch.Tensor):  # isinstance判断两个类型是否相同，判断是否为tensor
         return vars.cuda()
     elif isinstance(vars, str):
         return vars

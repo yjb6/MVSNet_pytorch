@@ -69,7 +69,7 @@ if args.mode == "train":
     print("creating new summary file")
     logger = SummaryWriter(args.logdir)
 
-print("argv:", sys.argv[1:])
+print("argv:", sys.argv[1:]) # 输出命令行参数
 print_args(args)
 
 # dataset, dataloader
@@ -87,7 +87,7 @@ model.cuda()
 model_loss = mvsnet_loss
 optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=args.wd)
 
-# load parameters
+# load parameters,接着之前的训练
 start_epoch = 0
 if (args.mode == "train" and args.resume) or (args.mode == "test" and not args.loadckpt):
     saved_models = [fn for fn in os.listdir(args.logdir) if fn.endswith(".ckpt")]
@@ -121,9 +121,9 @@ def train():
         global_step = len(TrainImgLoader) * epoch_idx
 
         # training
-        for batch_idx, sample in enumerate(TrainImgLoader):
+        for batch_idx, sample in enumerate(TrainImgLoader):  # enumrate 为可遍历对象加上下标遍历
             start_time = time.time()
-            global_step = len(TrainImgLoader) * epoch_idx + batch_idx
+            global_step = len(TrainImgLoader) * epoch_idx + batch_idx # 总共走了多少step，一次step是一次梯度更新
             do_summary = global_step % args.summary_freq == 0
             loss, scalar_outputs, image_outputs = train_sample(sample, detailed_summary=do_summary)
             if do_summary:
@@ -178,10 +178,10 @@ def test():
 
 
 def train_sample(sample, detailed_summary=False):
-    model.train()
+    model.train()  # 保证BN层使用一个batch内的均值和方差，dropout使用随机
     optimizer.zero_grad()
 
-    sample_cuda = tocuda(sample)
+    sample_cuda = tocuda(sample)  # 把数据放到cuda上
     depth_gt = sample_cuda["depth"]
     mask = sample_cuda["mask"]
 
@@ -189,8 +189,8 @@ def train_sample(sample, detailed_summary=False):
     depth_est = outputs["depth"]
 
     loss = model_loss(depth_est, depth_gt, mask)
-    loss.backward()
-    optimizer.step()
+    loss.backward()  # 反向传播
+    optimizer.step()    #  更新梯度
 
     scalar_outputs = {"loss": loss}
     image_outputs = {"depth_est": depth_est * mask, "depth_gt": sample["depth"],
