@@ -187,7 +187,7 @@ def train_sample(sample, detailed_summary=False):
     mask = sample_cuda["mask"]
 
     outputs = model(sample_cuda["imgs"], sample_cuda["proj_matrices"], sample_cuda["depth_values"])
-    depth_est = outputs["depth"]
+    depth_est = outputs["depth"]    #[B,H,W]
 
     loss = model_loss(depth_est, depth_gt, mask)
     loss.backward()  # 反向传播

@@ -96,7 +96,8 @@ class MVSNet(nn.Module):
             self.refine_network = RefineNet()
 
     def forward(self, imgs, proj_matrices, depth_values):
-        imgs = torch.unbind(imgs, 1)    # unbind表示从这一维拆开，把里面包的东西拿出来 -> (N,C,H,W)
+        # imgs : [B,3,C,H,W] 3是包括一个ref，两个src
+        imgs = torch.unbind(imgs, 1)    # unbind表示从这一维拆开，把里面包的东西拿出来，变成一个tuple ([B,C,H,W],[B,C,H,W],[B,C,H,W]),第一个tensor包含4个ref，其余两个tensor是src
         proj_matrices = torch.unbind(proj_matrices, 1)
         assert len(imgs) == len(proj_matrices), "Different number of images and projection matrices"
         img_height, img_width = imgs[0].shape[2], imgs[0].shape[3]
@@ -105,18 +106,18 @@ class MVSNet(nn.Module):
 
         # step 1. feature extraction
         # in: images; out: 32-channel feature maps
-        features = [self.feature(img) for img in imgs]  # [batchsize,32 ,w/4,h/4]
+        features = [self.feature(img) for img in imgs]  # 一个列表，包含三个元素，每个元素是[B,32 ,w/4,h/4]
         ref_feature, src_features = features[0], features[1:]
         ref_proj, src_projs = proj_matrices[0], proj_matrices[1:]
 
         # step 2. differentiable homograph, build cost volume
-        ref_volume = ref_feature.unsqueeze(2).repeat(1, 1, num_depth, 1, 1)     # unsqueeze 是解压缩，在第二个维度增加一维 -> (w/4,h/4 ,1,32), repeat -> （w/4 , h/4, num_depth, 32）
+        ref_volume = ref_feature.unsqueeze(2).repeat(1, 1, num_depth, 1, 1)     # unsqueeze 是解压缩，在第二个维度增加一维 -> (B,32,1,H/4,W/4), repeat -> (B,32,num_depth,H/4,W/4)
         volume_sum = ref_volume
-        volume_sq_sum = ref_volume ** 2
+        volume_sq_sum = ref_volume ** 2     # 平方，[B,C,num_depth,H,W]
         del ref_volume
         for src_fea, src_proj in zip(src_features, src_projs):
             # warpped features
-            warped_volume = homo_warping(src_fea, src_proj, ref_proj, depth_values)
+            warped_volume = homo_warping(src_fea, src_proj, ref_proj, depth_values)     # (B,C,Ndepth,H,W)
             if self.training:
                 volume_sum = volume_sum + warped_volume
                 volume_sq_sum = volume_sq_sum + warped_volume ** 2
@@ -126,14 +127,14 @@ class MVSNet(nn.Module):
                 volume_sq_sum += warped_volume.pow_(2)  # the memory of warped_volume has been modified
             del warped_volume
         # aggregate multiple feature volumes by variance
-        volume_variance = volume_sq_sum.div_(num_views).sub_(volume_sum.div_(num_views).pow_(2))
+        volume_variance = volume_sq_sum.div_(num_views).sub_(volume_sum.div_(num_views).pow_(2))    # 方差的简化推导 [B,C,Ndepth,H,W]
 
         # step 3. cost volume regularization
-        cost_reg = self.cost_regularization(volume_variance)
+        cost_reg = self.cost_regularization(volume_variance)    #[B,1,D,H,W]
         # cost_reg = F.upsample(cost_reg, [num_depth * 4, img_height, img_width], mode='trilinear')
-        cost_reg = cost_reg.squeeze(1)
+        cost_reg = cost_reg.squeeze(1)  # [B,D,H,W]
         prob_volume = F.softmax(cost_reg, dim=1)
-        depth = depth_regression(prob_volume, depth_values=depth_values)
+        depth = depth_regression(prob_volume, depth_values=depth_values)    # [B,H,W]
 
         with torch.no_grad():
             # photometric confidence

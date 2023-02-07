@@ -23,7 +23,7 @@ class MVSDataset(Dataset):
         metas = []
         with open(self.listfile) as f:
             scans = f.readlines()
-            scans = [line.rstrip() for line in scans]
+            scans = [line.rstrip() for line in scans]   # rstrip 是去掉空格
 
         # scans
         for scan in scans:
@@ -34,7 +34,7 @@ class MVSDataset(Dataset):
                 # viewpoints (49)
                 for view_idx in range(num_viewpoint):
                     ref_view = int(f.readline().rstrip())
-                    src_views = [int(x) for x in f.readline().rstrip().split()[1::2]]
+                    src_views = [int(x) for x in f.readline().rstrip().split()[1::2]]   # [start:end:step] 表示每隔两个读一个数字，将所有的参考视点idx保存
                     # light conditions 0-6
                     for light_idx in range(7):
                         metas.append((scan, light_idx, ref_view, src_views))
@@ -101,8 +101,8 @@ class MVSDataset(Dataset):
                 mask = self.read_img(mask_filename)
                 depth = self.read_depth(depth_filename)
 
-        imgs = np.stack(imgs).transpose([0, 3, 1, 2])
-        proj_matrices = np.stack(proj_matrices)
+        imgs = np.stack(imgs).transpose([0, 3, 1, 2])   # [3,C,H,W]
+        proj_matrices = np.stack(proj_matrices)     # [3,4,4]
 
         return {"imgs": imgs,
                 "proj_matrices": proj_matrices,
